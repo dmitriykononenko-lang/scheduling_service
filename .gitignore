@@ -1,0 +1,38 @@
+# --- Секреты/окружение ---
+.env
+.env.*
+!.env.example
+frontend/.env.local
+!frontend/.env.local.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- Docker ---
+*.pid
+
+# --- Логи ---
+*.log
