@@ -46,7 +46,7 @@ class AvailabilityException(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     date: Mapped[date] = mapped_column(Date, nullable=False)
     # type: "block" (выходной/блокировка) | "extra" (дополнительные часы)
     type: Mapped[str] = mapped_column(String(16), default="block", nullable=False)
-    # interval: для extra — [["10:00","14:00"]]; для block обычно пусто (весь день)
-    interval: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    # interval: список пар [["10:00","14:00"]]; для full-day block — пустой список
+    interval: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
     schedule: Mapped["AvailabilitySchedule"] = relationship(back_populates="exceptions")

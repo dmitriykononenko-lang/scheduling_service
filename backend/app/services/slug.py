@@ -18,6 +18,17 @@ _TRANSLIT = {
 }
 
 
+# Slug-и, занятые системными маршрутами публичной зоны — нельзя отдавать пользователям,
+# иначе профиль domain.ru/<slug> перекроет служебный путь (например, /public/manage/...).
+RESERVED_SLUGS = frozenset(
+    {
+        "api", "app", "auth", "admin", "public", "manage", "bookings", "booking",
+        "event-types", "availability", "slots", "docs", "redoc", "health", "ready",
+        "login", "register", "me", "settings", "billing", "static", "assets",
+    }
+)
+
+
 def slugify(value: str) -> str:
     value = value.strip().lower()
     value = "".join(_TRANSLIT.get(ch, ch) for ch in value)
@@ -31,10 +42,10 @@ async def generate_unique_user_slug(db: AsyncSession, base: str) -> str:
     suffix = 0
     while True:
         probe = candidate if suffix == 0 else f"{candidate}-{suffix}"
-        exists = await db.scalar(
-            select(func.count()).select_from(User).where(User.slug == probe)
+        taken = probe in RESERVED_SLUGS or bool(
+            await db.scalar(select(func.count()).select_from(User).where(User.slug == probe))
         )
-        if not exists:
+        if not taken:
             return probe
         suffix += 1
         if suffix > 50:  # на всякий случай — гарантированно уникальный хвост

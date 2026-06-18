@@ -33,4 +33,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.sync_calendars",
         "schedule": crontab(minute="*/2"),  # ТЗ §4.6 КП: блокировка слотов в ≤ 2 мин
     },
+    "release-expired-unpaid-bookings": {
+        "task": "app.workers.tasks.release_expired_unpaid_bookings",
+        "schedule": crontab(minute="*"),  # ТЗ §4.7 КП: освобождать слот по таймауту оплаты
+    },
 }

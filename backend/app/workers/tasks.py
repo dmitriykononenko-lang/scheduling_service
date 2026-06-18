@@ -29,6 +29,18 @@ def sync_calendars() -> dict[str, int]:
     return {"synced": 0}
 
 
+@celery_app.task(name="app.workers.tasks.release_expired_unpaid_bookings")
+def release_expired_unpaid_bookings() -> dict[str, int]:
+    """Освобождает слоты броней с предоплатой, не оплаченных в срок (ТЗ §4.7 КП).
+
+    Логика (добавляется в срезе платежей): найти брони в статусе `pending_payment` старше TTL
+    без успешного Payment → перевести в `canceled`, чтобы слот вернулся в выдачу.
+    """
+    logger.info("task.release_expired_unpaid_bookings.tick")
+    # TODO(срез §4.7): отменять просроченные pending_payment без успешной оплаты.
+    return {"released": 0}
+
+
 @celery_app.task(
     name="app.workers.tasks.deliver_webhook",
     bind=True,

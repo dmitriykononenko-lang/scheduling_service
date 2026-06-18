@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
+from app.services.availability import make_default_schedule
 from app.services.slug import generate_unique_user_slug
 
 
@@ -30,6 +31,8 @@ async def register_user(db: AsyncSession, data: RegisterRequest) -> User:
         slug=slug,
         timezone=data.timezone,
     )
+    # Сразу даём пользователю дефолтное расписание (Пн–Пт 10–18) в той же транзакции.
+    user.availability_schedules.append(make_default_schedule())
     db.add(user)
     await db.commit()
     await db.refresh(user)

@@ -48,6 +48,12 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # answers: ответы гостя на кастомные вопросы {question_id: value}
     answers: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
+    # Непубличный токен для управления бронью гостем (отмена/перенос по ссылке, ТЗ §4.5).
+    # Хранится как есть (не секрет уровня пароля); даёт доступ только к одной брони.
+    management_token: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, nullable=True
+    )
+
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
