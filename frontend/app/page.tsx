@@ -19,7 +19,7 @@ export default function HomePage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
       <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-brand">
-        MVP · черновик
+        Созвон · закрытая бета
       </span>
       <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">
         Calendly для русскоязычных консультантов

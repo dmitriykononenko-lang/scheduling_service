@@ -1,4 +1,4 @@
-# Backend — Scheduling Service
+# Backend — Созвон
 
 FastAPI + SQLAlchemy 2.0 (async) + Alembic + Celery.
 

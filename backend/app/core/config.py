@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # --- Общее ---
     environment: Literal["local", "test", "staging", "production"] = "local"
     debug: bool = True
-    project_name: str = "Scheduling Service"
+    project_name: str = "Созвон"
     api_v1_prefix: str = "/api/v1"
 
     # Базовый публичный URL фронтенда (для ссылок в письмах, publik-страницы вида domain.ru/имя)
