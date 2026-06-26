@@ -21,6 +21,7 @@ from app.schemas.booking import (
     BookingCancel,
     BookingCreate,
     BookingCreateResponse,
+    BookingManageRead,
     BookingRead,
     BookingReschedule,
 )
@@ -60,8 +61,16 @@ async def _get_public_event_type(
     return obj
 
 
-async def _get_booking_by_token(db: DbSession, token: str) -> Booking:
-    obj = await db.scalar(select(Booking).where(Booking.management_token == token))
+async def _get_booking_by_token(
+    db: DbSession, token: str, *, with_context: bool = False
+) -> Booking:
+    stmt = select(Booking).where(Booking.management_token == token)
+    if with_context:
+        # Eager-load для async: гостевая страница /manage читает event_type (+ хоста),
+        # чтобы показать встречу и подгрузить слоты для переноса. Cancel/reschedule
+        # контекст не нужен — вызывают без флага.
+        stmt = stmt.options(selectinload(Booking.event_type).selectinload(EventType.user))
+    obj = await db.scalar(stmt)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Бронь не найдена")
     return obj
@@ -199,10 +208,24 @@ async def public_create_booking(
 
 
 @router.get(
-    "/manage/{token}", response_model=BookingRead, summary="Бронь по токену управления"
+    "/manage/{token}", response_model=BookingManageRead, summary="Бронь по токену управления"
 )
-async def guest_get_booking(token: str, db: DbSession) -> Booking:
-    return await _get_booking_by_token(db, token)
+async def guest_get_booking(token: str, db: DbSession) -> BookingManageRead:
+    booking = await _get_booking_by_token(db, token, with_context=True)
+    event_type = booking.event_type
+    host = event_type.user
+    return BookingManageRead(
+        **BookingRead.model_validate(booking).model_dump(),
+        host_name=host.name,
+        host_slug=host.slug,
+        host_timezone=host.timezone,
+        event_title=event_type.title,
+        event_slug=event_type.slug,
+        event_duration_minutes=event_type.duration_minutes,
+        price=event_type.price,
+        currency=event_type.currency,
+        requires_prepay=event_type.requires_prepay,
+    )
 
 
 @router.post(

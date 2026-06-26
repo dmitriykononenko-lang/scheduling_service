@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -75,6 +76,24 @@ class BookingRead(BaseModel):
     answers: dict[str, Any]
     rescheduled_from_id: uuid.UUID | None
     created_at: datetime
+
+
+class BookingManageRead(BookingRead):
+    """Бронь по токену управления + контекст для гостевой страницы (ТЗ §4.5).
+
+    Поля host_*/event_* нужны странице `/manage`: показать встречу и подгрузить слоты
+    для переноса (слот-эндпоинт ключуется по слугам организатора и типа встречи).
+    """
+
+    host_name: str
+    host_slug: str
+    host_timezone: str
+    event_title: str
+    event_slug: str
+    event_duration_minutes: int
+    price: Decimal | None
+    currency: str
+    requires_prepay: bool
 
 
 class BookingCreateResponse(BaseModel):

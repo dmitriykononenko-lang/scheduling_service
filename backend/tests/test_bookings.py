@@ -129,6 +129,27 @@ async def test_host_can_list_and_cancel_freeing_slot(client: AsyncClient) -> Non
     assert slots[0] in after  # слот вернулся в выдачу
 
 
+async def test_guest_get_booking_includes_context(client: AsyncClient) -> None:
+    ctx = await _setup(client)
+    slots = await _slots(client, ctx["slug"], ctx["event_slug"])
+    booked = await _book(client, ctx["slug"], ctx["event_slug"], slots[0])
+    token = booked.json()["management_token"]
+
+    resp = await client.get(f"/api/v1/public/manage/{token}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Контекст для гостевой страницы управления: показать встречу и подгрузить
+    # слоты для переноса (слот-эндпоинт ключуется по слугам).
+    assert body["host_slug"] == ctx["slug"]
+    assert body["event_slug"] == ctx["event_slug"]
+    assert body["event_title"] == "Консультация"
+    assert body["event_duration_minutes"] == 30
+    assert body["host_name"] == "Хост"
+    assert body["host_timezone"]
+    assert body["requires_prepay"] is False
+    assert body["status"] == "confirmed"
+
+
 async def test_guest_cancel_by_token(client: AsyncClient) -> None:
     ctx = await _setup(client)
     slots = await _slots(client, ctx["slug"], ctx["event_slug"])

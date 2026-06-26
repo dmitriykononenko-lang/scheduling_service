@@ -134,6 +134,19 @@ export interface BookingCreateResponse {
   manage_url: string;
 }
 
+/** Бронь по токену + контекст для гостевой страницы управления (ТЗ §4.5). */
+export interface BookingManageRead extends BookingRead {
+  host_name: string;
+  host_slug: string;
+  host_timezone: string;
+  event_title: string;
+  event_slug: string;
+  event_duration_minutes: number;
+  price: string | null;
+  currency: string;
+  requires_prepay: boolean;
+}
+
 export type MutationResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -157,21 +170,18 @@ function extractError(body: unknown): string | null {
   return null;
 }
 
-export async function createBooking(
-  slug: string,
-  eventSlug: string,
-  body: BookingCreateRequest,
-): Promise<MutationResult<BookingCreateResponse>> {
+/** POST с JSON-телом и единым разбором ошибок FastAPI. */
+async function postJson<T>(
+  path: string,
+  body: unknown,
+): Promise<MutationResult<T>> {
   try {
-    const res = await fetch(
-      `${API_V1}/public/${encodeURIComponent(slug)}/event-types/${encodeURIComponent(eventSlug)}/bookings`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        cache: "no-store",
-      },
-    );
+    const res = await fetch(`${API_V1}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
     const data = (await res.json().catch(() => null)) as unknown;
     if (!res.ok) {
       return {
@@ -179,7 +189,7 @@ export async function createBooking(
         error: extractError(data) ?? `Ошибка сервера (${res.status})`,
       };
     }
-    return { ok: true, data: data as BookingCreateResponse };
+    return { ok: true, data: data as T };
   } catch {
     return {
       ok: false,
@@ -187,4 +197,45 @@ export async function createBooking(
         "Не удалось связаться с сервером. Проверьте соединение и попробуйте снова.",
     };
   }
+}
+
+export function createBooking(
+  slug: string,
+  eventSlug: string,
+  body: BookingCreateRequest,
+): Promise<MutationResult<BookingCreateResponse>> {
+  return postJson<BookingCreateResponse>(
+    `/public/${encodeURIComponent(slug)}/event-types/${encodeURIComponent(eventSlug)}/bookings`,
+    body,
+  );
+}
+
+// --- Гостевое управление бронью по токену (ТЗ §4.5) ---
+
+export function getManageBooking(
+  token: string,
+): Promise<BookingManageRead | null> {
+  return getJson<BookingManageRead>(
+    `/public/manage/${encodeURIComponent(token)}`,
+  );
+}
+
+export function cancelBooking(
+  token: string,
+  reason?: string,
+): Promise<MutationResult<BookingRead>> {
+  return postJson<BookingRead>(
+    `/public/manage/${encodeURIComponent(token)}/cancel`,
+    { reason: reason ?? null },
+  );
+}
+
+export function rescheduleBooking(
+  token: string,
+  startUtc: string,
+): Promise<MutationResult<BookingCreateResponse>> {
+  return postJson<BookingCreateResponse>(
+    `/public/manage/${encodeURIComponent(token)}/reschedule`,
+    { start_utc: startUtc },
+  );
 }
