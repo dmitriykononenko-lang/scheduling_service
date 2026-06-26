@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import EventVisibility, LocationType
+from app.models.enums import EventVisibility, LocationType, QuestionFieldType
 
 
 class EventTypeBase(BaseModel):
@@ -57,3 +57,22 @@ class EventTypeRead(EventTypeBase):
     user_id: uuid.UUID
     slug: str
     is_active: bool
+
+
+class QuestionRead(BaseModel):
+    """Кастомный вопрос гостю — публичная проекция модели Question (ТЗ §4.3)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    label: str
+    field_type: QuestionFieldType
+    required: bool
+    options: list[str] | None = None
+    position: int
+
+
+class EventTypePublicDetail(EventTypeRead):
+    """Детальная карточка типа встречи для страницы записи: с вопросами анкеты."""
+
+    questions: list[QuestionRead] = Field(default_factory=list)

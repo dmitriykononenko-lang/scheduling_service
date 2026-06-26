@@ -1,6 +1,10 @@
 import uuid
 
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.enums import QuestionFieldType
+from app.models.event_type import Question
 
 
 async def _register(client: AsyncClient) -> tuple[str, str]:
@@ -67,3 +71,51 @@ async def test_create_event_type_requires_auth(client: AsyncClient) -> None:
         json={"title": "No auth", "slug": "no-auth"},
     )
     assert resp.status_code == 401
+
+
+async def test_public_detail_exposes_questions(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Страница записи (ТЗ §4.4) должна получать анкету: публичный детальный эндпоинт
+    отдаёт вопросы, отсортированные по position."""
+    token, slug = await _register(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post(
+        "/api/v1/event-types",
+        headers=headers,
+        json={"title": "Консультация", "slug": "consult", "duration_minutes": 30},
+    )
+    event_id = uuid.UUID(created.json()["id"])
+
+    # Вопросы добавляем напрямую (CRUD вопросов хостом — отдельный срез). Порядок вставки
+    # обратный позиции — проверяем сортировку по Question.position.
+    db_session.add_all(
+        [
+            Question(
+                event_type_id=event_id,
+                label="Город",
+                field_type=QuestionFieldType.select,
+                required=False,
+                options=["Москва", "СПб"],
+                position=2,
+            ),
+            Question(
+                event_type_id=event_id,
+                label="Телефон",
+                field_type=QuestionFieldType.text,
+                required=True,
+                position=1,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    resp = await client.get(f"/api/v1/public/{slug}/event-types/consult")
+    assert resp.status_code == 200, resp.text
+    questions = resp.json()["questions"]
+    assert [q["label"] for q in questions] == ["Телефон", "Город"]  # порядок по position
+    phone, city = questions
+    assert phone["field_type"] == "text"
+    assert phone["required"] is True
+    assert city["field_type"] == "select"
+    assert city["options"] == ["Москва", "СПб"]

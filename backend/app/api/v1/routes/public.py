@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession
 from app.core.config import settings
@@ -23,7 +24,7 @@ from app.schemas.booking import (
     BookingRead,
     BookingReschedule,
 )
-from app.schemas.event_type import EventTypeRead
+from app.schemas.event_type import EventTypePublicDetail, EventTypeRead
 from app.schemas.slots import SlotRead, SlotsResponse
 from app.schemas.user import UserPublic
 from app.services import booking as booking_service
@@ -41,14 +42,19 @@ async def _get_host(db: DbSession, user_slug: str) -> User:
     return host
 
 
-async def _get_public_event_type(db: DbSession, host: User, event_slug: str) -> EventType:
-    obj = await db.scalar(
-        select(EventType).where(
-            EventType.user_id == host.id,
-            EventType.slug == event_slug,
-            EventType.is_active.is_(True),
-        )
+async def _get_public_event_type(
+    db: DbSession, host: User, event_slug: str, *, load_questions: bool = False
+) -> EventType:
+    stmt = select(EventType).where(
+        EventType.user_id == host.id,
+        EventType.slug == event_slug,
+        EventType.is_active.is_(True),
     )
+    if load_questions:
+        # Eager-load для async: страница записи читает event_type.questions (ленивый доступ
+        # вне greenlet упал бы). Relationship уже отсортирован по Question.position.
+        stmt = stmt.options(selectinload(EventType.questions))
+    obj = await db.scalar(stmt)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тип встречи не найден")
     return obj
@@ -104,13 +110,14 @@ async def public_event_types(user_slug: str, db: DbSession) -> list[EventType]:
 
 @router.get(
     "/{user_slug}/event-types/{event_slug}",
-    response_model=EventTypeRead,
+    response_model=EventTypePublicDetail,
     summary="Тип встречи по прямой ссылке",
 )
 async def public_event_type_detail(user_slug: str, event_slug: str, db: DbSession) -> EventType:
     host = await _get_host(db, user_slug)
     # По прямой ссылке доступен и скрытый (unlisted) тип — главное, что активный.
-    return await _get_public_event_type(db, host, event_slug)
+    # Вопросы анкеты нужны странице записи, чтобы отрисовать форму (ТЗ §4.4).
+    return await _get_public_event_type(db, host, event_slug, load_questions=True)
 
 
 # --- Свободные слоты ---
